@@ -1,0 +1,62 @@
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // -------------------------------------------------------------------------
+    // Fonctions de contrôle d'accès
+    // -------------------------------------------------------------------------
+
+    /**
+     * Vérifie si l'utilisateur est authentifié.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * Vérifie si l'utilisateur est propriétaire du chemin
+     * OU s'il tente d'accéder au compte global partagé NagePro.
+     */
+    function isOwner(userId) {
+      return isSignedIn() && (request.auth.uid == userId || userId == 'nagepro-global-user');
+    }
+
+    // -------------------------------------------------------------------------
+    // Règles des collections
+    // -------------------------------------------------------------------------
+
+    match /users/{userId} {
+      // Autorise la lecture/écriture du profil utilisateur lui-même
+      allow get, write: if isOwner(userId);
+
+      // Collection des nageurs (Athlètes)
+      match /athletes/{athleteId} {
+        allow read, write: if isOwner(userId);
+        
+        // Sous-collection des performances
+        match /performances/{perfId} {
+          allow read, write: if isOwner(userId);
+        }
+      }
+
+      // Collection des séances d'entraînement
+      match /workouts/{workoutId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // Collection des feuilles d'émargement
+      match /attendances/{attendanceId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // Support pour le chemin "swimmers" (utilisé dans les versions précédentes)
+      match /swimmers/{swimmerId} {
+        allow read, write: if isOwner(userId);
+        match /paceZones/{paceZoneId} {
+          allow read, write: if isOwner(userId);
+        }
+      }
+    }
+  }
+}
